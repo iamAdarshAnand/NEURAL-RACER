@@ -47,7 +47,7 @@ jobs:
           python3 - <<'PY'
           import os, re
           from pathlib import Path
-          path=Path.home()/'.config/godot/editor_settings-4.tres'
+          path=Path.home()/'.config/godot/editor_settings-4.3.tres'
           path.parent.mkdir(parents=True, exist_ok=True)
           content=path.read_text() if path.exists() else '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n'
           values={
@@ -62,7 +62,15 @@ jobs:
             content,count=re.subn(r'(?m)^'+re.escape(key)+r'\s*=.*$',lambda _:line,content)
             if not count:content+='\n'+line
           path.write_text(content)
+          print('Configured:',path)
+          print('Android SDK:',values['export/android/android_sdk_path'])
+          print('Java SDK:',values['export/android/java_sdk_path'])
           PY
+          test -x "$ANDROID_HOME/platform-tools/adb"
+          test -x "$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          test -x "$JAVA_HOME/bin/java"
+          grep -F 'export/android/android_sdk_path' "$HOME/.config/godot/editor_settings-4.3.tres"
+          grep -F 'export/android/java_sdk_path' "$HOME/.config/godot/editor_settings-4.3.tres"
       - name: Export APK
         shell: bash
         run: |
