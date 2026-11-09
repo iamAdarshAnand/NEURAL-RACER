@@ -43,34 +43,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          godot --headless --path . --editor --quit
-          python3 - <<'PY'
-          import os, re
-          from pathlib import Path
-          path=Path.home()/'.config/godot/editor_settings-4.3.tres'
-          path.parent.mkdir(parents=True, exist_ok=True)
-          content=path.read_text() if path.exists() else '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n'
-          values={
-            'export/android/android_sdk_path':os.environ['ANDROID_HOME'],
-            'export/android/java_sdk_path':os.environ['JAVA_HOME'],
-            'export/android/debug_keystore':str(Path.home()/'.android/debug.keystore'),
-            'export/android/debug_keystore_user':'androiddebugkey',
-            'export/android/debug_keystore_pass':'android',
-          }
-          for key,value in values.items():
-            line=f'{key} = "{value}"'
-            content,count=re.subn(r'(?m)^'+re.escape(key)+r'\s*=.*$',lambda _:line,content)
-            if not count:content+='\n'+line
-          path.write_text(content)
-          print('Configured:',path)
-          print('Android SDK:',values['export/android/android_sdk_path'])
-          print('Java SDK:',values['export/android/java_sdk_path'])
-          PY
-          test -x "$ANDROID_HOME/platform-tools/adb"
-          test -x "$ANDROID_HOME/build-tools/34.0.0/apksigner"
-          test -x "$JAVA_HOME/bin/java"
-          grep -F 'export/android/android_sdk_path' "$HOME/.config/godot/editor_settings-4.3.tres"
-          grep -F 'export/android/java_sdk_path' "$HOME/.config/godot/editor_settings-4.3.tres"
+          mkdir -p .github/scripts
+          cat > .github/scripts/configure_android.gd <<'GDSCRIPT'
+          extends EditorScript
+
+          func _run() -> void:
+              var settings: EditorSettings = EditorInterface.get_editor_settings()
+              settings.set_setting("export/android/android_sdk_path", OS.get_environment("ANDROID_HOME"))
+              settings.set_setting("export/android/java_sdk_path", OS.get_environment("JAVA_HOME"))
+              settings.set_setting("export/android/debug_keystore", OS.get_environment("HOME") + "/.android/debug.keystore")
+              settings.save()
+          GDSCRIPT
+          godot --headless --path . --editor --script .github/scripts/configure_android.gd
       - name: Export APK
         shell: bash
         run: |
