@@ -1,0 +1,77 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Godot 4.3 and export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=https://github.com/godotengine/godot/releases/download/4.3-stable
+          curl -fL --retry 3 "$url/Godot_v4.3-stable_linux.x86_64.zip" -o godot.zip
+          unzip -q godot.zip
+          sudo install -m 755 Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          curl -fL --retry 3 "$url/Godot_v4.3-stable_export_templates.tpz" -o templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.3.stable"
+          unzip -q templates.tpz -d /tmp/godot-export
+          cp -a /tmp/godot-export/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
+      - name: Generate debug keystore
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+      - name: Configure Godot Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --editor --quit
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          path=Path.home()/'.config/godot/editor_settings-4.tres'
+          content=path.read_text()
+          values={
+            'export/android/android_sdk_path':os.environ['ANDROID_HOME'],
+            'export/android/java_sdk_path':os.environ['JAVA_HOME'],
+            'export/android/debug_keystore':str(Path.home()/'.android/debug.keystore'),
+            'export/android/debug_keystore_user':'androiddebugkey',
+            'export/android/debug_keystore_pass':'android',
+          }
+          for key,value in values.items():
+            line=f'{key} = "{value}"'
+            content,count=re.subn(r'(?m)^'+re.escape(key)+r'\s*=.*$',lambda _:line,content)
+            if not count:content+='\n'+line
+          path.write_text(content)
+          PY
+      - name: Export APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          godot --headless --path . --editor --quit
+          godot --headless --verbose --path . --export-debug Android build/NeuralRacer.apk
+          test -s build/NeuralRacer.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NeuralRacer-Android-APK
+          path: build/NeuralRacer.apk
+          if-no-files-found: error
