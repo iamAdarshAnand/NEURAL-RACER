@@ -29,3 +29,11 @@ Open `project.godot` in Godot **4.3** and press **F5**. This is a lightweight 2D
 ## License
 
 Copyright © 2026 Adarsh Anand. No redistribution license is granted until a license file is added by the owner.
+
+## Project discovery
+
+**Godot Android Racing Game with Adaptive AI** — Offline Godot 4 Android racing prototype featuring lane steering, traffic obstacles and an adaptive contextual bandit AI rival.
+
+**Related developer searches:** Godot 4, Android racing game, adaptive AI, contextual bandit, offline game, GDScript.
+
+**Source:** [NEURAL-RACER](https://github.com/iamAdarshAnand/NEURAL-RACER) · **Author:** [Adarsh Anand](https://github.com/iamAdarshAnand)
